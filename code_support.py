@@ -4,42 +4,64 @@ from typing import Type, Optional, Callable, Union
 import logging
 import types
 
+try:
+    from colorlog import ColoredFormatter
+except ImportError:
+    warnings.warn(f"ColoredFormatter is not available. Using default logging format.")
+    ColoredFormatter = None
+
+CRITICAL=logging.CRITICAL
+FATAL=logging.FATAL
+ERROR=logging.ERROR
+WARNING=logging.WARNING
+WARN=logging.WARN
+INFO=logging.INFO
+DEBUG=logging.DEBUG
+NOTSET=logging.NOTSET
+
 # Predefined messages and categories
 INCOMPLETE_FUNCTION_MESSAGE = "This function is not yet implemented and may be unsafe to use."
 INCOMPLETE_CLASS_MESSAGE = "This type has not been fully developed yet and may still have some security risks."
 INCOMPLETE_WARNING_CATEGORY = UserWarning
 INCOMPLETE_CLASS_WARNING_CATEGORY = FutureWarning
 
-def setup_logger(name: str, log_file: Optional[str] = None, level: int = logging.DEBUG, console_output: bool = True) -> logging.Logger:
-    """
-    Function to set up a logger with a specific name, optional log file, and console output control.
-
-    Parameters:
-    - name (str): The name of the logger.
-    - log_file (Optional[str]): The file path to log to. If None, logging to file is disabled.
-    - level (int): The logging level (e.g., logging.DEBUG, logging.INFO).
-    - console_output (bool): If True, log to the console. If False, disable console logging.
-
-    Returns:
-    - logging.Logger: Configured logger instance.
-    """
+def setup_logger(name: str, log_file: Optional[str] = None, level: int = DEBUG, console_output: bool = True, str_format: str=None, colorful: bool = False) -> logging.Logger:
     logger = logging.getLogger(name)
     logger.setLevel(level)
 
-    formatter = logging.Formatter('%(asctime)s - %(filename)s - %(name)s - %(levelname)s - %(message)s')
+    if ColoredFormatter is not None:
+        if not str_format:
+            if colorful:
+                str_format = '%(log_color)s%(levelname)s - %(message)s - %(asctime)s - %(filename)s - %(name)s%(reset)s'
+            else:
+                str_format = '%(log_color)s%(levelname)s - %(message)s%(reset)s - %(asctime)s - %(filename)s - %(name)s'
+        formatter = ColoredFormatter(
+            str_format,
+            datefmt=None,
+            reset=True,
+            log_colors={
+                'DEBUG':    'cyan',
+                'INFO':     'green',
+                'WARNING':  'yellow',
+                'ERROR':    'red',
+                'CRITICAL': 'bold_red',
+            }
+        )
+    else:
+        formatter = logging.Formatter('%(asctime)s - %(filename)s - %(name)s - %(levelname)s - %(message)s')
 
     if console_output:
-        # Create console handler and set level
         ch = logging.StreamHandler()
         ch.setLevel(level)
         ch.setFormatter(formatter)
         logger.addHandler(ch)
 
     if log_file:
-        # Create file handler and set level
         fh = logging.FileHandler(log_file)
         fh.setLevel(level)
-        fh.setFormatter(formatter)
+        # 对于文件输出，我们不需要彩色格式化器
+        plain_formatter = logging.Formatter('%(levelname)s - %(message)s - %(asctime)s - %(filename)s - %(name)s')
+        fh.setFormatter(plain_formatter)
         logger.addHandler(fh)
 
     return logger
@@ -132,6 +154,7 @@ def test_logger():
     logger_file_only = setup_logger(__name__, log_file='some_module.log', console_output=False)
 
     logger_console.debug("This is a debug message")
+    logger_console.error("This is an error message")
     logger_file.info("This is an info message")
     logger_file_only.warning("This is a warning message")
 
